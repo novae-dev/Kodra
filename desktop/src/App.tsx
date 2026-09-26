@@ -1,7 +1,6 @@
 import {
   Bot,
   ChevronDown,
-  ChevronRight,
   Code2,
   FileCode2,
   Folder,
@@ -50,15 +49,38 @@ function App() {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<string[]>([]);
 
-  const sendMessage = () => {
-    if (!message.trim()) return;
+  const sendMessage = async () => {
+    const text = message.trim();
 
-    setChat((current) => [
-      ...current,
-      `You: ${message}`,
-      "Kodra: I’m analyzing your project...",
-    ]);
+    if (!text) return;
+
+    setChat((current) => [...current, `You: ${text}`]);
     setMessage("");
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: text,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Backend request failed");
+      }
+
+      const data = await response.json();
+
+      setChat((current) => [...current, `Kodra: ${data.reply}`]);
+    } catch {
+      setChat((current) => [
+        ...current,
+        "Kodra: I can't reach the Kodra agent. Make sure the backend is running.",
+      ]);
+    }
   };
 
   return (
@@ -89,7 +111,9 @@ function App() {
           <Search />
           <GitBranch />
           <MessageSquare />
+
           <div className="activity-spacer" />
+
           <Settings />
         </aside>
 
@@ -119,6 +143,7 @@ function App() {
                     <FileCode2 size={14} />
                   </>
                 )}
+
                 <span>{file.name}</span>
               </div>
             ))}
@@ -129,7 +154,7 @@ function App() {
           <div className="editor-tabs">
             <div className="tab active">
               <FileCode2 size={14} />
-              App.tsx
+              <span>App.tsx</span>
               <X size={13} />
             </div>
           </div>
@@ -154,8 +179,9 @@ function App() {
             <div className="terminal-header">
               <div>
                 <Terminal size={14} />
-                TERMINAL
+                <span>TERMINAL</span>
               </div>
+
               <X size={14} />
             </div>
 
@@ -163,9 +189,11 @@ function App() {
               <div>
                 <span className="prompt">$</span> npm run dev
               </div>
+
               <div className="terminal-muted">
                 VITE ready — local development server running
               </div>
+
               <div>
                 <span className="prompt">$</span>{" "}
                 <span className="cursor">_</span>
@@ -180,6 +208,7 @@ function App() {
               <div className="ai-icon">
                 <Bot size={16} />
               </div>
+
               <div>
                 <strong>Kodra AI</strong>
                 <span>AI coding agent</span>
@@ -195,7 +224,9 @@ function App() {
                 <div className="big-ai-icon">
                   <Bot size={25} />
                 </div>
+
                 <h2>Build with Kodra</h2>
+
                 <p>
                   Ask Kodra to understand your project, write code, fix bugs, or
                   make changes.
@@ -205,9 +236,11 @@ function App() {
                   <button onClick={() => setMessage("Explain this project")}>
                     Explain this project
                   </button>
+
                   <button onClick={() => setMessage("Find bugs in this file")}>
                     Find bugs in this file
                   </button>
+
                   <button onClick={() => setMessage("Build a new feature")}>
                     Build a new feature
                   </button>
@@ -240,7 +273,8 @@ function App() {
 
             <div className="input-footer">
               <span>Enter to send</span>
-              <button onClick={sendMessage}>
+
+              <button onClick={sendMessage} aria-label="Send message">
                 <Play size={14} />
               </button>
             </div>
@@ -251,9 +285,11 @@ function App() {
       <footer className="statusbar">
         <div>
           <GitBranch size={13} />
-          main
+          <span>main</span>
         </div>
+
         <div>TypeScript React</div>
+
         <div>Kodra MVP</div>
       </footer>
     </div>
