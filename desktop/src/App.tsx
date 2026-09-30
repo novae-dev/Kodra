@@ -1,53 +1,81 @@
-import {
-  Bot,
-  ChevronDown,
-  Code2,
-  FileCode2,
-  Folder,
-  GitBranch,
-  MessageSquare,
-  Play,
-  Search,
-  Settings,
-  Terminal,
-  X,
-  Zap,
-} from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, FileCode2, FileText, Folder, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 
-const files = [
-  { name: "src", type: "folder", open: true },
-  { name: "App.tsx", type: "file", active: true },
-  { name: "main.tsx", type: "file" },
-  { name: "App.css", type: "file" },
-  { name: "index.css", type: "file" },
-  { name: "package.json", type: "file" },
-  { name: "vite.config.ts", type: "file" },
-];
-
-const code = [
-  "import { useState } from 'react';",
-  "",
-  "function App() {",
-  "  const [count, setCount] = useState(0);",
-  "",
-  "  return (",
-  "    <main>",
-  "      <h1>Hello Kodra</h1>",
-  "      <button onClick={() => setCount(count + 1)}>",
-  "        Count: {count}",
-  "      </button>",
-  "    </main>",
-  "  );",
-  "}",
-  "",
-  "export default App;",
-];
+const getFileName = (path: string) =>
+  path.split("/").filter(Boolean).pop() || path;
 
 function App() {
+  const [files, setFiles] = useState<string[]>([]);
+  const [activeFile, setActiveFile] = useState("");
+  const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<string[]>([]);
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [projectLoading, setProjectLoading] = useState(true);
+
+  const openFile = useCallback(async (path: string) => {
+    setActiveFile(path);
+    setLoadingFile(true);
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/file?path=${encodeURIComponent(path)}`,
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to read file");
+      }
+
+      const data = await response.json();
+      setCode(data.content);
+    } catch {
+      setCode("// Unable to read this file.");
+    } finally {
+      setLoadingFile(false);
+    }
+  }, []);
+
+  const loadProject = useCallback(async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/project");
+
+      if (!response.ok) {
+        throw new Error("Failed to load project");
+      }
+
+      const data = await response.json();
+      const projectFiles: string[] = data.files || [];
+
+      setFiles(projectFiles);
+
+      const firstFile = projectFiles.find(
+        (file) =>
+          file.endsWith(".tsx") ||
+          file.endsWith(".ts") ||
+          file.endsWith(".jsx") ||
+          file.endsWith(".js"),
+      );
+
+      if (firstFile) {
+        await openFile(firstFile);
+      }
+    } catch {
+      setChat([
+        "Kodra: I can't load the project. Make sure the Python agent is running.",
+      ]);
+    } finally {
+      setProjectLoading(false);
+    }
+  }, [openFile]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadProject();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadProject]);
 
   const sendMessage = async () => {
     const text = message.trim();
@@ -65,6 +93,11 @@ function App() {
         },
         body: JSON.stringify({
           message: text,
+          context: {
+            currentFile: activeFile,
+            projectFiles: files,
+            code,
+          },
         }),
       });
 
@@ -86,20 +119,15 @@ function App() {
   return (
     <div className="kodra">
       <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">
-            <Code2 size={18} />
-          </div>
-          <span>KODRA</span>
+        <div className="brand">KODRA</div>
+
+        <div className="topbar-center">
+          <span className="project-name">Kodra</span>
+          <span className="separator">/</span>
+          <span>{activeFile || "No file selected"}</span>
         </div>
 
-        <div className="project">
-          <GitBranch size={14} />
-          <span>main</span>
-          <ChevronDown size={14} />
-        </div>
-
-        <div className="connection">
+        <div className="topbar-status">
           <span className="status-dot" />
           Connected
         </div>
@@ -107,14 +135,23 @@ function App() {
 
       <div className="workspace">
         <aside className="activitybar">
-          <Code2 />
-          <Search />
-          <GitBranch />
-          <MessageSquare />
+          <button className="activity-button active" title="Explorer">
+            <FileCode2 size={19} />
+          </button>
+
+          <button className="activity-button" title="Search">
+            <span>⌕</span>
+          </button>
+
+          <button className="activity-button" title="Terminal">
+            <span>›_</span>
+          </button>
 
           <div className="activity-spacer" />
 
-          <Settings />
+          <button className="activity-button" title="Settings">
+            <span>⚙</span>
+          </button>
         </aside>
 
         <aside className="sidebar">
@@ -127,130 +164,96 @@ function App() {
           </div>
 
           <div className="tree">
-            {files.map((file) => (
-              <div
-                key={file.name}
-                className={`tree-item ${file.active ? "active" : ""}`}
-              >
-                {file.type === "folder" ? (
-                  <>
-                    <ChevronDown size={14} />
-                    <Folder size={15} />
-                  </>
-                ) : (
-                  <>
-                    <span className="tree-indent" />
-                    <FileCode2 size={14} />
-                  </>
-                )}
-
-                <span>{file.name}</span>
+            {projectLoading ? (
+              <div className="tree-item">
+                <span>Loading project...</span>
               </div>
-            ))}
+            ) : files.length === 0 ? (
+              <div className="tree-item">
+                <span>No files found</span>
+              </div>
+            ) : (
+              files.map((path) => {
+                const isActive = activeFile === path;
+
+                return (
+                  <button
+                    key={path}
+                    className={`tree-item ${isActive ? "active" : ""}`}
+                    onClick={() => openFile(path)}
+                    title={path}
+                  >
+                    <span className="tree-indent" />
+
+                    {path.includes("/") ? (
+                      <FileCode2 size={14} />
+                    ) : (
+                      <FileText size={14} />
+                    )}
+
+                    <span>{getFileName(path)}</span>
+                  </button>
+                );
+              })
+            )}
           </div>
         </aside>
 
         <main className="editor">
           <div className="editor-tabs">
-            <div className="tab active">
-              <FileCode2 size={14} />
-              <span>App.tsx</span>
-              <X size={13} />
-            </div>
+            {activeFile && (
+              <div className="tab active">
+                <FileCode2 size={14} />
+                <span>{getFileName(activeFile)}</span>
+                <X size={13} />
+              </div>
+            )}
           </div>
 
           <div className="editor-content">
-            <div className="line-numbers">
-              {code.map((_, index) => (
-                <span key={index}>{index + 1}</span>
-              ))}
-            </div>
-
-            <pre className="code">
-              {code.map((line, index) => (
-                <div key={index} className="code-line">
-                  {line || " "}
+            {loadingFile ? (
+              <div className="code-loading">Loading file...</div>
+            ) : (
+              <>
+                <div className="line-numbers">
+                  {code.split("\n").map((_, index) => (
+                    <span key={index}>{index + 1}</span>
+                  ))}
                 </div>
-              ))}
-            </pre>
-          </div>
 
-          <div className="terminal">
-            <div className="terminal-header">
-              <div>
-                <Terminal size={14} />
-                <span>TERMINAL</span>
-              </div>
-
-              <X size={14} />
-            </div>
-
-            <div className="terminal-body">
-              <div>
-                <span className="prompt">$</span> npm run dev
-              </div>
-
-              <div className="terminal-muted">
-                VITE ready — local development server running
-              </div>
-
-              <div>
-                <span className="prompt">$</span>{" "}
-                <span className="cursor">_</span>
-              </div>
-            </div>
+                <pre className="code">
+                  {code.split("\n").map((line, index) => (
+                    <div key={index} className="code-line">
+                      {line || " "}
+                    </div>
+                  ))}
+                </pre>
+              </>
+            )}
           </div>
         </main>
 
         <aside className="ai-panel">
           <div className="ai-header">
-            <div className="ai-title">
-              <div className="ai-icon">
-                <Bot size={16} />
-              </div>
-
-              <div>
-                <strong>Kodra AI</strong>
-                <span>AI coding agent</span>
-              </div>
-            </div>
-
-            <Zap size={16} />
+            <span>KODRA AI</span>
+            <span className="ai-online">ONLINE</span>
           </div>
 
           <div className="chat">
             {chat.length === 0 ? (
-              <div className="empty-chat">
-                <div className="big-ai-icon">
-                  <Bot size={25} />
-                </div>
-
-                <h2>Build with Kodra</h2>
-
-                <p>
-                  Ask Kodra to understand your project, write code, fix bugs, or
-                  make changes.
-                </p>
-
-                <div className="suggestions">
-                  <button onClick={() => setMessage("Explain this project")}>
-                    Explain this project
-                  </button>
-
-                  <button onClick={() => setMessage("Find bugs in this file")}>
-                    Find bugs in this file
-                  </button>
-
-                  <button onClick={() => setMessage("Build a new feature")}>
-                    Build a new feature
-                  </button>
-                </div>
+              <div className="chat-empty">
+                <strong>Kodra AI</strong>
+                <p>Ask me to understand, modify, or improve your project.</p>
               </div>
             ) : (
               chat.map((item, index) => (
                 <div
-                  key={index}
-                  className={item.startsWith("You:") ? "user-msg" : "ai-msg"}
+                  key={`${item}-${index}`}
+                  className={
+                    item.startsWith("You:")
+                      ? "chat-message user"
+                      : "chat-message"
+                  }
                 >
                   {item}
                 </div>
@@ -268,29 +271,19 @@ function App() {
                   sendMessage();
                 }
               }}
-              placeholder="Ask Kodra anything..."
+              placeholder="Ask Kodra..."
             />
 
-            <div className="input-footer">
-              <span>Enter to send</span>
-
-              <button onClick={sendMessage} aria-label="Send message">
-                <Play size={14} />
-              </button>
-            </div>
+            <button onClick={sendMessage}>Send</button>
           </div>
         </aside>
       </div>
 
       <footer className="statusbar">
-        <div>
-          <GitBranch size={13} />
-          <span>main</span>
-        </div>
-
-        <div>TypeScript React</div>
-
-        <div>Kodra MVP</div>
+        <span>{activeFile || "Kodra"}</span>
+        <span>{code.split("\n").length} lines</span>
+        <span>UTF-8</span>
+        <span>TypeScript</span>
       </footer>
     </div>
   );

@@ -201,7 +201,10 @@
   text-align: right;
   padding-right: 16px;
   color: #454c58;
-  font: 12px/23px "SFMono-Regular", Consolas, monospace;
+  font:
+    12px/23px "SFMono-Regular",
+    Consolas,
+    monospace;
   user-select: none;
 }
 
@@ -211,7 +214,10 @@
 
 .code {
   margin: 0;
-  font: 12px/23px "SFMono-Regular", Consolas, monospace;
+  font:
+    12px/23px "SFMono-Regular",
+    Consolas,
+    monospace;
   color: #c9ced7;
 }
 
@@ -251,7 +257,10 @@
 
 .terminal-body {
   padding: 12px 15px;
-  font: 11px/21px "SFMono-Regular", Consolas, monospace;
+  font:
+    11px/21px "SFMono-Regular",
+    Consolas,
+    monospace;
   color: #bbc2cc;
 }
 
@@ -457,4 +466,10 @@
 
 .statusbar div:last-child {
   margin-left: auto;
+}
+
+.code-loading {
+  padding: 24px;
+  color: #737984;
+  font-family: "DM Mono", monospace;
 }
