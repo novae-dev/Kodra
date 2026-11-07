@@ -1,0 +1,13 @@
+{
+  "name": "kodra",
+  "version": "0.2.0",
+  "description": "Kodra — Autonomous AI Coding Agent (LLM Plans. Python/Go Executes)",
+  "private": true,
+  "scripts": {
+    "start:backend": "powershell -Command \"$env:PYTHONPATH='agent'; .\\agent\\.venv\\Scripts\\python.exe -m uvicorn kodra.server.app:app --host 127.0.0.1 --port 8000 --reload\"",
+    "start:frontend": "npm run dev --prefix desktop",
+    "dev": "npm run start:frontend",
+    "test:backend": "powershell -Command \"$env:PYTHONPATH='agent'; .\\agent\\.venv\\Scripts\\pytest.exe agent\\tests -v\"",
+    "build:frontend": "npm run build --prefix desktop"
+  }
+}
